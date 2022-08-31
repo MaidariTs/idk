@@ -4,8 +4,25 @@ import sqlite3
 class BotDB:
 
     def __init__(self, db_file):
-        self.conn = sqlite3.connect(db_file)
+        self.conn = sqlite3.connect('accountant.db')
         self.cursor = self.conn.cursor()
+        self.cursor.executescript("""
+        CREATE TABLE IF NOT EXISTS users(
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER UNIQUE NOT NULL,
+            join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS records(
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER UNIQUE NOT NULL,
+            operation BOOLEAN NOT NULL,
+            value DECIMAL NOT NULL,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(user_id)
+        );
+        """)
+        self.conn.commit()
 
     def user_exists(self, user_id):
         """Проверяем, есть ли юзер в базе"""
@@ -24,7 +41,7 @@ class BotDB:
 
     def add_record(self, user_id, operation, value):
         """Создаем запись о доходах/расходах"""
-        self.cursor.execute("INSERT INTO records (users_id, operation, value) VALUES (?, ?, ?)",
+        self.cursor.execute("INSERT INTO records (user_id, operation, value) VALUES (?, ?, ?)",
                             (self.get_user_id(user_id),
                              operation == "+",
                              value))
@@ -34,16 +51,16 @@ class BotDB:
         """Получаем историю о доходах/расходах"""
 
         if within == "day":
-            result = self.cursor.execute("SELECT * FROM records WHERE users_id = ? AND date BETWEEN datetime('now', 'start of day') AND datetime('now', 'localtime') ORDER BY date",
+            result = self.cursor.execute("SELECT * FROM records WHERE user_id = ? AND date BETWEEN datetime('now', 'start of day') AND datetime('now', 'localtime') ORDER BY date",
                                          (self.get_user_id(user_id),))
         elif within == "week":
-            result = self.cursor.execute("SELECT * FROM records WHERE users_id = ? AND date BETWEEN datetime('now', '-6 days') AND datetime('now', 'localtime') ORDER BY date",
+            result = self.cursor.execute("SELECT * FROM records WHERE user_id = ? AND date BETWEEN datetime('now', '-6 days') AND datetime('now', 'localtime') ORDER BY date",
                                          (self.get_user_id(user_id),))
         elif within == "month":
-            result = self.cursor.execute("SELECT * FROM records WHERE users_id = ? AND date BETWEEN datetime('now', 'start of month') AND datetime('now', 'localtime') ORDER BY date",
+            result = self.cursor.execute("SELECT * FROM records WHERE user_id = ? AND date BETWEEN datetime('now', 'start of month') AND datetime('now', 'localtime') ORDER BY date",
                                          (self.get_user_id(user_id),))
         else:
-            result = self.cursor.execute("SELECT * FROM records WHERE users_id = ? ORDER BY date",
+            result = self.cursor.execute("SELECT * FROM records WHERE user_id = ? ORDER BY date",
                                          (self.get_user_id(user_id),))
 
         return result.fetchall()
